@@ -52,7 +52,7 @@ module.exports = class SolarplanDevice extends Homey.Device {
       const zonneplanApi = new ZonneplanApi(this.homey.log, accessToken, refreshToken);
       await zonneplanApi.enableSelfConsumption(mainUuid, unitID);
     });
-    
+
     const controlActionHomeoptimizationEnable = this.homey.flow.getActionCard('homeoptimization_enable');
     controlActionHomeoptimizationEnable.registerRunListener(async (args, state) => {
       const unitID = this.getData().id;
@@ -61,7 +61,7 @@ module.exports = class SolarplanDevice extends Homey.Device {
       this.log(`mainUuid: ${mainUuid}`);
       this.log(`mode: ${args.mode}`);
       const accessToken = this.homey.settings.get('access_token');
-      const refreshToken = this.homey.settings.get('refresh_token');      
+      const refreshToken = this.homey.settings.get('refresh_token');
       const zonneplanApi = new ZonneplanApi(this.homey.log, accessToken, refreshToken);
       await zonneplanApi.enableHomeOptimization(mainUuid, unitID, args.mode);
     });
@@ -74,10 +74,10 @@ module.exports = class SolarplanDevice extends Homey.Device {
       this.log(`mainUuid: ${mainUuid}`);
       this.log(`mode: ${args.mode}`);
       const accessToken = this.homey.settings.get('access_token');
-      const refreshToken = this.homey.settings.get('refresh_token');      
+      const refreshToken = this.homey.settings.get('refresh_token');
       const zonneplanApi = new ZonneplanApi(this.homey.log, accessToken, refreshToken);
       await zonneplanApi.enableHomeOptimizationAdvanced(mainUuid, unitID, args.charge, args.discharge);
-    });    
+    });
 
 
 
@@ -299,7 +299,7 @@ module.exports = class SolarplanDevice extends Homey.Device {
       ) {
         this.setCapabilityValue('boolean.dynamicchargingactive', dcActivated);
       }
-    }    
+    }
 
     if (this.validResult(battControlMode.data.modes.home_optimization.available)) {
       if (!this.hasCapability('boolean.homeoptimization')) await this.addCapability('boolean.homeoptimization');
@@ -327,7 +327,7 @@ module.exports = class SolarplanDevice extends Homey.Device {
       ) {
         this.setCapabilityValue('boolean.homeoptimizationactive', hoActivated);
       }
-    }    
+    }
 
     if (this.validResult(battControlMode.data.modes.self_consumption.available)) {
       if (!this.hasCapability('boolean.selfconsumption')) await this.addCapability('boolean.selfconsumption');
@@ -373,8 +373,8 @@ module.exports = class SolarplanDevice extends Homey.Device {
       ) {
         this.setCapabilityValue('control_mode', controlMode);
       }
-    }  
-    
+    }
+
 
     if (this.validResult(battMMonthData.data[0].measurements)) {
       if (!this.hasCapability('meter_power.total_earned_thismonth')) await this.addCapability('meter_power.total_earned_thismonth');
@@ -389,12 +389,17 @@ module.exports = class SolarplanDevice extends Homey.Device {
 
     if (this.validResult(battMMonthData.data[0].measurements)) {
       if (!this.hasCapability('meter_power.total_earned_prevmonth')) await this.addCapability('meter_power.total_earned_prevmonth');
+
       var measurements = battMMonthData.data[0].measurements;
-      var previousmonth = measurements[measurements.length - 2];
-      let earnings = previousmonth.value / 10000000;
-      this.log(`previous month earnings: ${earnings}`);
-      if (earnings !== null && !(typeof deviceState !== 'undefined' && typeof deviceState['meter_power.total_earned_prevmonth'] !== 'undefined' && deviceState['meter_power.total_earned_prevmonth'] === earnings)) {
-        this.setCapabilityValue('meter_power.total_earned_prevmonth', earnings);
+      if (measurements.length > 1) {
+        var previousmonth = measurements[measurements.length - 2];
+        let earnings = previousmonth.value / 10000000;
+        this.log(`previous month earnings: ${earnings}`);
+        if (earnings !== null && !(typeof deviceState !== 'undefined' && typeof deviceState['meter_power.total_earned_prevmonth'] !== 'undefined' && deviceState['meter_power.total_earned_prevmonth'] === earnings)) {
+          this.setCapabilityValue('meter_power.total_earned_prevmonth', earnings);
+        }
+      } else {
+        this.setCapabilityValue('meter_power.total_earned_prevmonth', 0);
       }
     }
 

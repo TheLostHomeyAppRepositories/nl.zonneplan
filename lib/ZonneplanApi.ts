@@ -265,10 +265,12 @@ export class ZonneplanApi {
 
   async getBatteryMonthData(battUuid: string) {
     this.#log('UUID value', battUuid);
+    const d = new Date();
+    let year = d.getFullYear();
 
     const res = await httpsPromise({
       hostname: zonneplanApiBase,
-      path: `/contracts/${battUuid}/home_battery_installation/charts/months?date=2025-10-01`,
+      path: `/contracts/${battUuid}/home_battery_installation/charts/months?date=${year}-01-01`,
       method: 'GET',
       headers: this.getHeaders(),
       family: 4,

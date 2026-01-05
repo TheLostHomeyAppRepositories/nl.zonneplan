@@ -64,5 +64,8 @@
   },
   "1.1.11": {
     "en": "New battery options, flow actions"
-  }  
+  },
+  "1.1.12": {
+    "en": "battery last month earnings fix"
+  }      
 }
