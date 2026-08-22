@@ -1,6 +1,6 @@
 {
   "id": "nl.zonneplan",
-  "version": "1.1.13",
+  "version": "1.2.14",
   "compatibility": ">=12.4.5",
   "sdk": 3,
   "brandColor": "#20df30", 
@@ -47,20 +47,18 @@
   "support": "https://github.com/biemond/nl.zonneplan/issues/",
   "homeyCommunityTopicId": 120587,
   "source": "https://github.com/biemond/nl.zonneplan/",
-  "api": {
-    "postActivate": {
-      "method": "POST",
-      "path": "/"
-    },
-
-    "getOTP": {
-      "method": "GET",
-      "path": "/otp/:uuid"
-    },
-
-    "postToken": {
-      "method": "POST",
-      "path": "/token/"
-    }
+"api": {
+  "postAuthorize": {
+    "method": "POST",
+    "path": "/authorize"
+  },
+  "postAuthorizeComplete": {
+    "method": "POST",
+    "path": "/authorize/complete"
+  },
+  "postToken": {
+    "method": "POST",
+    "path": "/token"
   }
+}
 }

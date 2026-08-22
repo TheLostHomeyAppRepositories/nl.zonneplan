@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "nl.zonneplan",
-  "version": "1.1.13",
+  "version": "1.2.14",
   "compatibility": ">=12.4.5",
   "sdk": 3,
   "brandColor": "#20df30",
@@ -49,17 +49,17 @@
   "homeyCommunityTopicId": 120587,
   "source": "https://github.com/biemond/nl.zonneplan/",
   "api": {
-    "postActivate": {
+    "postAuthorize": {
       "method": "POST",
-      "path": "/"
+      "path": "/authorize"
     },
-    "getOTP": {
-      "method": "GET",
-      "path": "/otp/:uuid"
+    "postAuthorizeComplete": {
+      "method": "POST",
+      "path": "/authorize/complete"
     },
     "postToken": {
       "method": "POST",
-      "path": "/token/"
+      "path": "/token"
     }
   },
   "flow": {

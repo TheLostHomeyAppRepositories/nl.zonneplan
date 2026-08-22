@@ -70,5 +70,8 @@
   } ,
   "1.1.13": {
     "en": "token refresh and gas meter values"
-  }         
+  },
+  "1.2.14": {
+    "en": "New zonneplan auth token"
+  }             
 }

@@ -291,78 +291,124 @@ export class ZonneplanApi {
     return <any>res.body;
   }
 
-  async getToken(email: string, password: string) {
-    this.#log('Making call to get new token.');
+   async startAuthorization(email: string, sourceName: string) {
+    const crypto = await import('crypto');
+
+    const codeVerifier = crypto.randomBytes(48).toString('base64url');
+    const codeChallenge = crypto
+      .createHash('sha256')
+      .update(codeVerifier)
+      .digest('base64url');
+
+    this.#log('Starting Zonneplan OAuth authorization challenge.');
 
     const res = await httpsPromise({
       hostname: zonneplanApiBase,
-      path: `/oauth/token`,
+      path: '/oauth/authorize-challenge',
       method: 'POST',
-      headers: this.getBaseHeaders(),
-      referrerPolicy: 'no-referrer',
-      credentials: 'include',
+      headers: {
+        ...this.getBaseHeaders(),
+        Accept: 'application/json',
+      },
       body: JSON.stringify({
+        response_type: 'code',
         email,
-        password,
-        grant_type: 'one_time_password',
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+        source_name: sourceName.substring(0, 255),
+      }),
+      expectedStatusCodes: [403],
+      family: 4,
+    });
+
+    const resp = <any>res.body;
+
+    if (
+      !resp?.auth_session
+      || resp?.otp_required !== true
+      || !resp?.expires_in
+    ) {
+      throw new Error(
+        `Unexpected authorization challenge response: ${JSON.stringify(resp)}`,
+      );
+    }
+
+    this.#log('Authorization challenge created.');
+
+    return {
+      auth_session: resp.auth_session,
+      otp_required: resp.otp_required,
+      expires_in: resp.expires_in,
+      codeVerifier,
+    };
+  }
+
+  async completeAuthorization(authSession: string, otp: string) {
+    this.#log('Completing Zonneplan OAuth authorization challenge.');
+
+    const res = await httpsPromise({
+      hostname: zonneplanApiBase,
+      path: '/oauth/authorize-challenge',
+      method: 'POST',
+      headers: {
+        ...this.getBaseHeaders(),
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        auth_session: authSession,
+        otp,
       }),
       family: 4,
     });
 
     const resp = <any>res.body;
 
-    this.#log('GetToken response: ', resp);
+    if (!resp?.authorization_code) {
+      throw new Error(
+        `Unexpected authorization response: ${JSON.stringify(resp)}`,
+      );
+    }
 
-    // Write token to local storage
-    this.#refreshToken = resp.refresh_token;
-    this.#token = resp.access_token;
+    this.#log('Authorization code received.');
 
-    return <any>resp;
+    return {
+      authorization_code: resp.authorization_code,
+    };
   }
 
-  async getOTP(uuid: string) {
-    this.#log('UUID value', uuid);
+  async exchangeAuthorizationCode(code: string, codeVerifier: string) {
+    this.#log('Exchanging Zonneplan authorization code for tokens.');
 
     const res = await httpsPromise({
       hostname: zonneplanApiBase,
-      path: `/auth/request/${uuid}`,
-      method: 'GET',
-      headers: this.getBaseHeaders(),
-      referrerPolicy: 'no-referrer',
-      credentials: 'include',
+      path: '/oauth/token',
+      method: 'POST',
+      headers: {
+        ...this.getBaseHeaders(),
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: codeVerifier,
+      }),
       family: 4,
     });
 
-    this.#log('OTP response: ', res.body);
+    const resp = <any>res.body;
 
-    return <any>res.body;
-  }
-
-  async activate(email: string) {
-    this.#log('Email value', email);
-
-    try {
-      const res = await httpsPromise({
-        hostname: zonneplanApiBase,
-        path: `/auth/request/`,
-        method: 'POST',
-        headers: this.getBaseHeaders(),
-        referrerPolicy: 'no-referrer',
-        credentials: 'include',
-        body: JSON.stringify({ email }),
-        family: 4,
-      });
-
-      this.#log('Activate response: ', res.body);
-
-      return <any>res.body;
-    } catch (error) {
-      // Surface the failure so the settings UI can alert the user, instead of
-      // silently returning null (which makes "nothing happen" on activate).
-      this.#log('Error during activation: ', error);
-      throw error;
+    if (!resp?.access_token || !resp?.refresh_token) {
+      throw new Error(
+        `Unexpected token response: ${JSON.stringify(resp)}`,
+      );
     }
+
+    this.#token = resp.access_token;
+    this.#refreshToken = resp.refresh_token;
+
+    return resp;
   }
+
 
   async getRefreshToken() {
     const res = await httpsPromise({

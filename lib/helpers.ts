@@ -19,27 +19,44 @@ export function formatDateTime(clock: any, dateString: string) {
   return new Intl.DateTimeFormat('nl-NL', options).format(date).replace(',', '');
 }
 
-export async function httpsPromise(options: HttpsPromiseOptions): Promise<HttpsPromiseResponse> {
-  const { body, ...requestOptions } = options;
+export async function httpsPromise(
+  options: HttpsPromiseOptions,
+): Promise<HttpsPromiseResponse> {
+  const {
+    body,
+    expectedStatusCodes = [200, 201, 204],
+    ...requestOptions
+  } = options;
 
   return new Promise((resolve, reject) => {
     const req = https.request(requestOptions, (res) => {
       const chunks: Uint8Array[] = [];
+
       res.on('data', (data: Uint8Array) => chunks.push(data));
+
       res.on('end', () => {
         let resBody = Buffer.concat(chunks).toString();
 
-        if (res.statusCode && res.statusCode !== 200 && res.statusCode !== 201 && res.statusCode !== 204) {
-          // Include the API's own message (e.g. "Invalid email address.") so the
-          // UI can show why a request failed instead of a generic error.
+        if (
+          res.statusCode === undefined
+          || !expectedStatusCodes.includes(res.statusCode)
+        ) {
           let apiMessage = '';
+
           try {
-            apiMessage = JSON.parse(resBody)?.message ?? '';
+            const parsed = JSON.parse(resBody);
+            apiMessage = parsed?.message ?? parsed?.error ?? '';
           } catch {
             apiMessage = resBody;
           }
+
           const suffix = apiMessage ? `: ${apiMessage}` : '';
-          reject(new Error(`Request failed with status ${res.statusCode}${suffix}`));
+
+          reject(
+            new Error(
+              `Request failed with status ${res.statusCode ?? 'unknown'}${suffix}`,
+            ),
+          );
           return;
         }
 
@@ -52,22 +69,29 @@ export async function httpsPromise(options: HttpsPromiseOptions): Promise<HttpsP
               return;
             }
             break;
+
           default:
             try {
               resBody = JSON.parse(resBody);
-            } catch (error) {
+            } catch {
               resBody = resBody.toString();
             }
             break;
         }
 
-        resolve({ body: resBody, headers: res.headers });
+        resolve({
+          body: resBody,
+          headers: res.headers,
+        });
       });
     });
+
     req.on('error', reject);
+
     if (body) {
       req.write(body);
     }
+
     req.end();
   });
 }

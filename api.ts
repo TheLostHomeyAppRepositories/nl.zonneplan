@@ -1,24 +1,50 @@
-"use strict";
+'use strict';
 
-import { MyZonneplanApp } from "./types/localTypes";
+import { MyZonneplanApp } from './types/localTypes';
 
 module.exports = {
-  async postActivate({ homey, body = {} }: { homey: any; body: any }) {
+  async postAuthorize({
+    homey,
+    body = {},
+  }: {
+    homey: any;
+    body: any;
+  }) {
     const app = <MyZonneplanApp>homey.app;
 
-    return await app.activate(body.email);
+    return await app.startAuthorization(
+      body.email,
+      body.source_name,
+    );
   },
 
-  async getOTP({ homey, params }: { homey: any; params: any }) {
+  async postAuthorizeComplete({
+    homey,
+    body = {},
+  }: {
+    homey: any;
+    body: any;
+  }) {
     const app = <MyZonneplanApp>homey.app;
 
-    console.log("in api.js what we have getOTP ", params);
-    return await app.getOTP(params.uuid);
+    return await app.completeAuthorization(
+      body.auth_session,
+      body.otp,
+    );
   },
 
-  async postToken({ homey, body = {} }: { homey: any; body: any }) {
+  async postToken({
+    homey,
+    body = {},
+  }: {
+    homey: any;
+    body: any;
+  }) {
     const app = <MyZonneplanApp>homey.app;
 
-    return await app.getToken(body.email, body.password);
+    return await app.exchangeAuthorizationCode(
+      body.code,
+      body.code_verifier,
+    );
   },
 };

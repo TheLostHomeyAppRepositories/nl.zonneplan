@@ -4,106 +4,216 @@ import type HomeySettings from 'homey/lib/HomeySettings.js';
 
 class SettingScript {
   private homey: HomeySettings;
-  private uuid: string | undefined;
+
+  private authSession: string | undefined;
+  private codeVerifier: string | undefined;
 
   constructor(homey: HomeySettings) {
     this.homey = homey;
   }
 
   public async onHomeyReady(): Promise<void> {
-    var activateElement = document.getElementById('activate');
-    var saveElement = document.getElementById('save');
+    const requestCodeElement = document.getElementById('requestCode');
+    const loginElement = document.getElementById('login');
 
     this.homey.get('email', (err: string, email: string) => {
-      if (err) return this.homey.alert(err);
+      if (err) {
+        return this.homey.alert(err);
+      }
+
       this.setInputValue('email', email);
     });
 
-    activateElement?.addEventListener('click', (e: any) => {
-      console.log('onHomeyReady activateElement click ');
-      this.#activateEmail();
+    this.homey.get('installation', (err: string, installation: string) => {
+      if (err) {
+        return;
+      }
 
-      const emailValue = this.getInputValue('email');
-
-      this.homey.set('email', emailValue, (err: string) => {
-        if (err) return this.homey.alert(err);
-      });
+      this.setInputValue('installation', installation);
     });
 
-    saveElement?.addEventListener('click', (e: any) => {
-      console.log('onHomeyReady save click');
-      this.#save();
+    requestCodeElement?.addEventListener('click', async () => {
+      await this.#requestCode();
+    });
+
+    loginElement?.addEventListener('click', async () => {
+      await this.#login();
     });
 
     this.homey.ready();
   }
 
-  async #activateEmail() {
-    const emailValue = this.getInputValue('email');
-    this.homey.api('POST', '/', { email: emailValue }, (err: string, success: any) => {
+  async #requestCode() {
+    const email = this.getInputValue('email')?.trim();
+    const installation =
+      this.getInputValue('installation')?.trim() || 'Homey';
+
+    if (!email) {
+      this.homey.alert('Please enter your email address.');
+      return;
+    }
+
+    this.homey.set('email', email, (err: string) => {
       if (err) {
-        console.log('error ', err);
-        this.homey.alert('Email you have entered is not registered.');
-      }
-      if (!err && success) {
-        console.log('success', success.data.uuid);
-        this.uuid = success.data.uuid;
-
-        const message = `We send an activation email to ${emailValue}, please activate and then click Finish activation to get OTP.`;
-        this.homey.alert(message);
-
-        var saveElement = document.getElementById('save');
-        saveElement!.removeAttribute('disabled');
+        this.homey.alert(err);
       }
     });
+
+    this.homey.set('installation', installation, (err: string) => {
+      if (err) {
+        this.homey.alert(err);
+      }
+    });
+
+    this.homey.api(
+      'POST',
+      '/authorize',
+      {
+        email,
+        source_name: `Homey Zonneplan ${installation}`.substring(0, 255),
+      },
+      (err: string, result: any) => {
+        if (err) {
+          console.error('Error starting authorization:', err);
+          this.homey.alert(
+            'Unable to send the verification code. Please check your email address.',
+          );
+          return;
+        }
+
+        if (!result?.auth_session || !result?.codeVerifier) {
+          console.error('Invalid authorization response:', result);
+          this.homey.alert(
+            'Unexpected response while starting authentication.',
+          );
+          return;
+        }
+
+        this.authSession = result.auth_session;
+        this.codeVerifier = result.codeVerifier;
+
+        const otpElement = document.getElementById('otp');
+        otpElement?.removeAttribute('disabled');
+
+        const loginElement = document.getElementById('login');
+        loginElement?.removeAttribute('disabled');
+
+        this.homey.alert(
+          'A six-digit verification code has been sent to your email.',
+        );
+      },
+    );
   }
 
-  async #save() {
-    console.log('uuid in save html', this.uuid);
+  async #login() {
+    const otp = this.getInputValue('otp')?.trim();
 
-    this.homey.api('GET', `/otp/${this.uuid}`, (err: string, success: any) => {
-      if (err) {
-        console.log('error ', err);
-      }
-      if (!err && success) {
-        const otpObject = success.data;
-        console.log('otpObject values ', otpObject);
+    if (!this.authSession || !this.codeVerifier) {
+      this.homey.alert('Please request a verification code first.');
+      return;
+    }
 
-        this.homey.set('email', otpObject.email, (err: string) => {
-          if (err) return this.homey.alert(err);
-        });
+    if (!otp || !/^\d{6}$/.test(otp)) {
+      this.homey.alert('Please enter the six-digit verification code.');
+      return;
+    }
 
-        this.homey.set('password', otpObject.password, (err: string) => {
-          if (err) return this.homey.alert(err);
-        });
+    this.homey.api(
+      'POST',
+      '/authorize/complete',
+      {
+        auth_session: this.authSession,
+        otp,
+      },
+      (err: string, result: any) => {
+        if (err) {
+          console.error('Error completing authorization:', err);
+          this.homey.alert(
+            'The verification code is invalid or expired.',
+          );
+          return;
+        }
 
-        this.#getToken(otpObject.email, otpObject.password);
-        this.homey.alert('All is ok, please add the zonneplan device');
-      }
-    });
+        if (!result?.authorization_code) {
+          console.error('Invalid authorization response:', result);
+          this.homey.alert(
+            'Unexpected response while completing authentication.',
+          );
+          return;
+        }
+
+        void this.#exchangeCode(result.authorization_code);
+      },
+    );
   }
 
-  async #getToken(email: string, password: string) {
-    this.homey.api('POST', '/token', { email: email, password: password }, (err: string, success: any) => {
-      if (err) {
-        console.log('error ', err);
-        this.homey.alert('Problem with retrieving token');
-      }
-      if (!err && success) {
-        console.log('success', success);
-        this.homey.set('access_token', success.access_token, (err: string) => {
-          if (err) return this.homey.alert(err);
-        });
+  async #exchangeCode(code: string) {
+    const codeVerifier = this.codeVerifier;
 
-        this.homey.set('refresh_token', success.refresh_token, (err: string) => {
-          if (err) return this.homey.alert(err);
-        });
-      }
-    });
+    if (!codeVerifier) {
+      this.homey.alert('Authentication session expired. Please try again.');
+      return;
+    }
+
+    this.homey.api(
+      'POST',
+      '/token',
+      {
+        code,
+        code_verifier: codeVerifier,
+      },
+      (err: string, success: any) => {
+        if (err) {
+          console.error('Error exchanging authorization code:', err);
+          this.homey.alert('Problem retrieving the Zonneplan token.');
+          return;
+        }
+
+        if (!success?.access_token || !success?.refresh_token) {
+          console.error('Invalid token response:', success);
+          this.homey.alert('Unexpected token response.');
+          return;
+        }
+
+        // Tokens are also persisted by app.exchangeAuthorizationCode().
+        // Keep the settings page compatible with the current Homey setup flow.
+        this.homey.set(
+          'access_token',
+          success.access_token,
+          (setErr: string) => {
+            if (setErr) {
+              this.homey.alert(setErr);
+            }
+          },
+        );
+
+        this.homey.set(
+          'refresh_token',
+          success.refresh_token,
+          (setErr: string) => {
+            if (setErr) {
+              this.homey.alert(setErr);
+            }
+          },
+        );
+
+        // The verifier is single-use.
+        this.codeVerifier = undefined;
+        this.authSession = undefined;
+
+        const loginElement = document.getElementById('login');
+        loginElement?.setAttribute('disabled', 'disabled');
+
+        this.homey.alert(
+          'Login successful. You can now add the Zonneplan device.',
+        );
+      },
+    );
   }
 
   setInputValue(id: string, value: string | number | undefined) {
     const input = document.getElementById(id) as HTMLInputElement;
+
     if (input) {
       input.value = value?.toString() || '';
     }
@@ -111,12 +221,14 @@ class SettingScript {
 
   getInputValue(id: string) {
     const input = document.getElementById(id) as HTMLInputElement;
+
     if (input) {
       return input.value;
     }
 
-    return null;
+    return '';
   }
 }
 
-window.onHomeyReady = async (homey: any): Promise<void> => await new SettingScript(homey).onHomeyReady();
+window.onHomeyReady = async (homey: any): Promise<void> =>
+  await new SettingScript(homey).onHomeyReady();

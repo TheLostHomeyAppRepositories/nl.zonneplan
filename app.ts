@@ -23,20 +23,28 @@ module.exports = class MyZonneplanApp extends Homey.App {
     this.refreshDevices();
   }
 
-  async activate(email: string) {
-    var result = this.#zonneplanApi.activate(email);
-    this.refreshDevices();
+   async startAuthorization(email: string, sourceName: string) {
+    return this.#zonneplanApi.startAuthorization(email, sourceName);
+  }
+
+  async completeAuthorization(authSession: string, otp: string) {
+    return this.#zonneplanApi.completeAuthorization(authSession, otp);
+  }
+
+  async exchangeAuthorizationCode(code: string, codeVerifier: string) {
+    const result = await this.#zonneplanApi.exchangeAuthorizationCode(
+      code,
+      codeVerifier,
+    );
+
+    this.homey.settings.set('access_token', result.access_token);
+    this.homey.settings.set('refresh_token', result.refresh_token);
+
+    await this.refreshDevices();
+
     return result;
   }
-
-  async getOTP(uuid: string) {
-    return this.#zonneplanApi.getOTP(uuid);
-  }
-
-  async getToken(email: string, password: string) {
-    return this.#zonneplanApi.getToken(email, password);
-  }
-
+  
   async refreshDevices() {
     // Refresh the basic data from the Zonneplan API (with retry mechanism to refresh access token if needed)
     let resp = await this.#zonneplanApi.getDevice();
