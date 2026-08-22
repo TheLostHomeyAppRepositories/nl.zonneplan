@@ -70,7 +70,7 @@ class SettingScript {
       '/authorize',
       {
         email,
-        source_name: `Homey Zonneplan ${installation}`.substring(0, 255),
+        source_name: `Homey Zonneplan 1.2.14 - ${installation}`.substring(0, 255),
       },
       (err: string, result: any) => {
         if (err) {
