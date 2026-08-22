@@ -5,15 +5,16 @@ import https from 'https';
 import { IncomingHttpHeaders } from 'http';
 
 export interface MyZonneplanApp extends Homey.App {
-startAuthorization: (
-  email: string,
-  sourceName: string,
-) => Promise<{
-  auth_session: string;
-  otp_required: boolean;
-  expires_in: number;
-  codeVerifier: string;
-}>;
+  startAuthorization: (
+    email: string,
+    sourceName: string,
+  ) => Promise<{
+    auth_session: string;
+    otp_required: boolean;
+    expires_in: number;
+    codeVerifier: string;
+  }>;
+
 
   completeAuthorization: (
     authSession: string,
