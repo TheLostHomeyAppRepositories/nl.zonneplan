@@ -178,7 +178,7 @@ module.exports = class SolarplanDevice extends Homey.Device {
       }
     }
 
-    if (this.validResult(meta['inverter_state'])) {
+    if (typeof meta['inverter_state'] !== 'undefined') {
       if (!this.hasCapability('boolean.onoff')) await this.addCapability('boolean.onoff');
 
       const inverterState = meta['inverter_state'];
@@ -273,7 +273,7 @@ module.exports = class SolarplanDevice extends Homey.Device {
       }
     }
 
-    if (this.validResult(battControlMode.data.modes.dynamic_charging.available)) {
+    if (typeof battControlMode.data.modes.dynamic_charging.available !== 'undefined') {
       if (!this.hasCapability('boolean.dynamiccharging')) await this.addCapability('boolean.dynamiccharging');
 
       const dcEnabled = battControlMode.data.modes.dynamic_charging.available;
@@ -301,7 +301,7 @@ module.exports = class SolarplanDevice extends Homey.Device {
       }
     }
 
-    if (this.validResult(battControlMode.data.modes.home_optimization.available)) {
+     if (typeof battControlMode.data.modes.home_optimization.available !== 'undefined') {
       if (!this.hasCapability('boolean.homeoptimization')) await this.addCapability('boolean.homeoptimization');
 
       const hoEnabled = battControlMode.data.modes.home_optimization.available;
@@ -329,7 +329,64 @@ module.exports = class SolarplanDevice extends Homey.Device {
       }
     }
 
-    if (this.validResult(battControlMode.data.modes.self_consumption.available)) {
+
+    if (typeof battDetails['manual_control_enabled'] !== 'undefined') {
+      if (!this.hasCapability('boolean.manualcontrolenabled')) await this.addCapability('boolean.manualcontrolenabled');
+
+      const mcEnabled =  battDetails['manual_control_enabled'];
+      this.log(`Manual control enabled? ${mcEnabled}`);
+
+      if (
+        mcEnabled !== null &&
+        !(typeof deviceState !== 'undefined' && typeof deviceState['boolean.manualcontrolenabled'] !== 'undefined' && deviceState['boolean.manualcontrolenabled'] === mcEnabled)
+      ) {
+        this.setCapabilityValue('boolean.manualcontrolenabled', mcEnabled);
+      }
+    }
+
+    if (typeof battDetails['grid_congestion_active'] !== 'undefined') {
+      if (!this.hasCapability('boolean.gridcongestionactive')) await this.addCapability('boolean.gridcongestionactive');
+
+      const gcEnabled =  battDetails['grid_congestion_active'];
+      this.log(`Grid congestion enabled? ${gcEnabled}`);
+
+      if (
+        gcEnabled !== null &&
+        !(typeof deviceState !== 'undefined' && typeof deviceState['boolean.gridcongestionactive'] !== 'undefined' && deviceState['boolean.gridcongestionactive'] === gcEnabled)
+      ) {
+        this.setCapabilityValue('boolean.gridcongestionactive', gcEnabled);
+      }
+    }
+
+    if (typeof battDetails['backup_power_capable'] !== 'undefined') {
+      if (!this.hasCapability('boolean.backuppowercapable')) await this.addCapability('boolean.backuppowercapable');
+
+      const bpcEnabled =  battDetails['backup_power_capable'];
+      this.log(`backup power capable? ${bpcEnabled}`);
+
+      if (
+        bpcEnabled !== null &&
+        !(typeof deviceState !== 'undefined' && typeof deviceState['boolean.backuppowercapable'] !== 'undefined' && deviceState['boolean.backuppowercapable'] === bpcEnabled)
+      ) {
+        this.setCapabilityValue('boolean.backuppowercapable', bpcEnabled);
+      }
+    }
+
+    if (typeof battDetails['backup_power_active'] !== 'undefined') {
+      if (!this.hasCapability('boolean.backuppoweractive')) await this.addCapability('boolean.backuppoweractive');
+
+      const bpcEnabled =  battDetails['backup_power_active'];
+      this.log(`backup power capable? ${bpcEnabled}`);
+
+      if (
+        bpcEnabled !== null &&
+        !(typeof deviceState !== 'undefined' && typeof deviceState['boolean.backuppoweractive'] !== 'undefined' && deviceState['boolean.backuppoweractive'] === bpcEnabled)
+      ) {
+        this.setCapabilityValue('boolean.backuppoweractive', bpcEnabled);
+      }
+    }    
+
+    if (typeof battControlMode.data.modes.self_consumption.available !== 'undefined') {
       if (!this.hasCapability('boolean.selfconsumption')) await this.addCapability('boolean.selfconsumption');
 
       const scEnabled = battControlMode.data.modes.self_consumption.available;
@@ -357,7 +414,7 @@ module.exports = class SolarplanDevice extends Homey.Device {
       }
     }
 
-    if (this.validResult(battControlMode.data.control_mode)) {
+    if (typeof battControlMode.data.control_mode !== 'undefined') {
       if (!this.hasCapability('control_mode')) await this.addCapability('control_mode');
       const controlMode = battControlMode.data.control_mode;
       this.log(`Control mode? ${controlMode}`);
@@ -431,6 +488,15 @@ module.exports = class SolarplanDevice extends Homey.Device {
       const earnedDay = battDetails['total_day'] / 10000000;
       if (earnedDay !== null && !(typeof deviceState !== 'undefined' && typeof deviceState['meter_power.daily_earned'] !== 'undefined' && deviceState['meter_power.daily_earned'] === earnedDay)) {
         this.setCapabilityValue('meter_power.daily_earned', earnedDay);
+      }
+    }
+
+    if (this.validResult(battDetails['average_day'])) {
+      if (!this.hasCapability('meter_power.average_day')) await this.addCapability('meter_power.average_day');
+
+      const earnedDay = battDetails['average_day'] / 10000000;
+      if (earnedDay !== null && !(typeof deviceState !== 'undefined' && typeof deviceState['meter_power.average_day'] !== 'undefined' && deviceState['meter_power.average_day'] === earnedDay)) {
+        this.setCapabilityValue('meter_power.average_day', earnedDay);
       }
     }
 
